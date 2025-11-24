@@ -1,0 +1,119 @@
+<recipe>
+  <metadata>
+    <id>choco-chip-cookies-001</id>
+    <name>Classic Chocolate Chip Cookies</name>
+    <author>
+      <name>Rudra</name>
+      <contributor-role>home baker</contributor-role>
+      <location>New Jersey, USA</location>
+    </author>
+    <difficulty>easy</difficulty>
+    <culture>American</culture>
+    <cuisine-type>Dessert</cuisine-type>
+    <tags>
+      <tag>cookies</tag>
+      <tag>chocolate</tag>
+      <tag>snack</tag>
+    </tags>
+    <version>1.0</version>
+    <last-updated>2025-11-23</last-updated>
+    <license>RCSAL</license>
+    <provenance>local family recipe</provenance>
+  </metadata>
+
+  <ingredients>
+    <ingredient>
+      <amount>2.25</amount><unit>cups</unit><item>all-purpose flour</item>
+    </ingredient>
+    <ingredient>
+      <amount>1</amount><unit>tsp</unit><item>baking soda</item>
+    </ingredient>
+    <ingredient>
+      <amount>1</amount><unit>tsp</unit><item>salt</item>
+    </ingredient>
+    <ingredient>
+      <amount>1</amount><unit>cup</unit><item>unsalted butter</item><preparation>softened</preparation>
+    </ingredient>
+    <ingredient>
+      <amount>0.75</amount><unit>cup</unit><item>sugar</item>
+    </ingredient>
+    <ingredient>
+      <amount>0.75</amount><unit>cup</unit><item>brown sugar</item>
+    </ingredient>
+    <ingredient>
+      <amount>2</amount><unit>units</unit><item>vanilla extract</item><unit>tsp</unit>
+    </ingredient>
+    <ingredient>
+      <amount>2</amount><unit>units</unit><item>eggs</item>
+    </ingredient>
+    <ingredient>
+      <amount>2</amount><unit>cups</unit><item>semi-sweet chocolate chips</item>
+    </ingredient>
+  </ingredients>
+
+  <steps>
+    <step number="1">
+      <instruction>Preheat oven to 375°F (190°C).</instruction>
+    </step>
+    <step number="2">
+      <instruction>Mix flour, baking soda, and salt in a bowl.</instruction>
+    </step>
+    <step number="3">
+      <instruction>Cream butter and sugars until fluffy. Add vanilla and eggs one at a time.</instruction>
+    </step>
+    <step number="4">
+      <instruction>Gradually add dry ingredients. Stir in chocolate chips.</instruction>
+    </step>
+    <step number="5">
+      <instruction>Drop spoonfuls onto baking sheet. Bake for 9–11 minutes.</instruction>
+      <temperature>375°F</temperature>
+      <time>10 minutes</time>
+      <sensory-cues>
+        <smell>warm vanilla and chocolate</smell>
+        <visual>golden edges</visual>
+      </sensory-cues>
+    </step>
+  </steps>
+
+  <serving-facts>
+    <servings>24</servings>
+    <serving-size>1 cookie</serving-size>
+    <presentation>Serve warm or cooled</presentation>
+    <occasion>snack, dessert, gifting</occasion>
+    <seasonality>year-round</seasonality>
+  </serving-facts>
+
+  <nutrition>
+    <calories-per-serving>180</calories-per-serving>
+    <macros>
+      <carbs>22g</carbs>
+      <fat>9g</fat>
+      <protein>2g</protein>
+    </macros>
+    <dietary-flags>
+      <flag>vegetarian</flag>
+    </dietary-flags>
+  </nutrition>
+
+  <storage>
+    <shelf-life>5 days</shelf-life>
+    <storage-method>airtight container at room temperature</storage-method>
+    <freezer-friendly>true</freezer-friendly>
+    <reheating>microwave for 10 seconds</reheating>
+  </storage>
+
+  <ratings>
+    <user>4.8</user>
+    <expert>4.5</expert>
+    <popularity>high</popularity>
+  </ratings>
+
+  <history>
+    <origin-story>Inspired by Rudra’s childhood baking sessions with Khushi.</origin-story>
+    <regional-variations>Can substitute chocolate chips with white chocolate or nuts.</regional-variations>
+  </history>
+
+  <author-notes>
+    <note>Best enjoyed with cold milk. Avoid overbaking — soft centers are key!</note>
+  </author-notes>
+</recipe>
