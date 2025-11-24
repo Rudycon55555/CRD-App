@@ -259,7 +259,7 @@
           <p id="fileStatus" class="status"></p>
         </div>
         <div class="actions" style="align-items: end;">
-          <button id="btnCardify" class="btn btn-success">Cardify</button>
+          <button id="btnCardify" class="btn btn-success" disabled>Cardify</button>
           <button id="btnDownloadPDF" class="btn btn-primary" disabled>Download .crd.pdf</button>
           <button id="showPreviewBtn" class="btn" disabled>Preview PDF</button>
         </div>
@@ -539,18 +539,32 @@
     let parsedRecipe = null;
     let lastPdfBlobUrl = null;
 
+    // Fix: Enable Cardify button only when supported file is selected
     document.getElementById('fileInput').addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
-      if (!file) return;
+      document.getElementById('btnCardify').disabled = true;
+      document.getElementById('btnDownloadPDF').disabled = true;
+      document.getElementById('showPreviewBtn').disabled = true;
+      if (!file) {
+        document.getElementById('fileStatus').textContent = '';
+        document.getElementById('preview').textContent = '';
+        importedXMLText = '';
+        parsedRecipe = null;
+        return;
+      }
       const name = file.name.toLowerCase();
       if (!name.endsWith('.crd.xml') && !name.endsWith('.xml') && !name.endsWith('.crd')) {
         document.getElementById('fileStatus').textContent = 'Unsupported file type. Please select .crd.xml, .xml, or .crd.';
+        document.getElementById('preview').textContent = '';
+        importedXMLText = '';
+        parsedRecipe = null;
         return;
       }
       importedXMLText = await file.text();
       document.getElementById('fileStatus').textContent = `Loaded ${file.name} (${file.size} bytes). Ready to Cardify.`;
       document.getElementById('preview').textContent = importedXMLText.slice(0, 4000);
       parsedRecipe = null;
+      document.getElementById('btnCardify').disabled = false;
       document.getElementById('btnDownloadPDF').disabled = true;
       document.getElementById('showPreviewBtn').disabled = true;
       document.getElementById('pdfPreviewWrapper').classList.add('hidden');
@@ -868,6 +882,7 @@
         document.getElementById('fileStatus').textContent = 'Failed to parse XML. Ensure it is valid CRD.';
         document.getElementById('btnDownloadPDF').disabled = true;
         document.getElementById('showPreviewBtn').disabled = true;
+        document.getElementById('btnCardify').disabled = false;
         document.getElementById('pdfPreviewWrapper').classList.add('hidden');
         if (lastPdfBlobUrl) { URL.revokeObjectURL(lastPdfBlobUrl); lastPdfBlobUrl = null; }
       }
