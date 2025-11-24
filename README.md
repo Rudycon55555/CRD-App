@@ -6,7 +6,7 @@ Everything is contained in one HTML file with embedded CSS and JavaScript.
 ## 🚀 Getting Started
 
 1. Clone or download this repository.
-2. Open `[CRD-App](https://rudycon55555.github.io/CRD-App/)` in any modern browser (Chrome, Firefox, Edge, Brave).
+2. Open [CRD-App](https://rudycon55555.github.io/CRD-App/) in any modern browser (Chrome, Firefox, Edge, Brave).
 3. Use the tabs at the top to switch between:
    - **CRD Text Editor**
    - **Create Card**
