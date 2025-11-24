@@ -8,7 +8,7 @@ The app is a single‑page HTML application with three main tabs: **Editor**, **
 ## 🔑 Quick Start
 
 1. Download or clone the repository.
-2. Open `CRD-App.html` in your browser (Chrome, Firefox, Edge, Brave).
+2. Open [CRD-App](https://rudycon55555.github.io/CRD-App/) in your browser (Chrome, Firefox, Edge, Brave).
 3. Use the tabs at the top to switch between:
    - **CRD Text Editor**
    - **Create Card**
