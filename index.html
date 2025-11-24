@@ -849,9 +849,9 @@
         addHeader('Notes');
         addBullet(parsedRecipe.notes, 'Author notes');
 
-        doc.output('blob').then(blob => {
-          resolve(blob);
-        });
+        // Return Blob synchronously (fix for buttons not enabling)
+        const blob = doc.output('blob');
+        resolve(blob);
       });
     }
 
