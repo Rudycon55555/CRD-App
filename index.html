@@ -168,6 +168,26 @@
       color: var(--muted);
       margin-left: 8px;
     }
+
+    /* PDF preview styling */
+    #pdfPreviewWrapper {
+      margin-top: 20px;
+      text-align: center;
+    }
+    #pdfPreviewFrame {
+      width: 100%;
+      max-width: 780px;
+      height: 680px;
+      border: 1px solid #aaa;
+      border-radius: 8px;
+      background: #2a3058;
+      margin: 0 auto;
+      box-shadow: 0 3px 24px 0 #13142c80;
+      display: block;
+    }
+    #showPreviewBtn {
+      margin-left: 10px;
+    }
   </style>
 
   <!-- CodeMirror for rich XML editing -->
@@ -213,7 +233,8 @@
     <!-- Cardify Tab -->
     <section id="tab-card" class="panel hidden">
       <h2>Create Card</h2>
-      <p class="status">Import .crd.xml, .xml (CRD), or .crd and generate a printable PDF card.</p>
+      <p class="status">Import .crd.xml, .xml (CRD), or .crd and generate a printable PDF card.<br>
+      <strong>Now with PDF preview:</strong> After generating the PDF, click 'Preview PDF' to see it right in your browser before downloading!</p>
 
       <div class="row-3">
         <div>
@@ -224,6 +245,7 @@
         <div class="actions" style="align-items: end;">
           <button id="btnCardify" class="btn btn-success">Cardify</button>
           <button id="btnDownloadPDF" class="btn btn-primary" disabled>Download .crd.pdf</button>
+          <button id="showPreviewBtn" class="btn" disabled>Preview PDF</button>
         </div>
         <div>
           <label for="cardTitle">PDF file name (no extension)</label>
@@ -234,6 +256,11 @@
       <div class="panel" style="margin-top: 16px;">
         <h2>Preview (parsed CRD)</h2>
         <div id="preview" class="code"></div>
+      </div>
+
+      <div id="pdfPreviewWrapper" class="hidden">
+        <h2>Live PDF Preview</h2>
+        <iframe id="pdfPreviewFrame"></iframe>
       </div>
     </section>
 
@@ -253,8 +280,8 @@
         <h2>Authoring guidelines</h2>
         <ul>
           <li><strong>Metadata:</strong> Provide a stable <code>&lt;id&gt;</code>, descriptive <code>&lt;name&gt;</code>, and an <code>&lt;author&gt;</code> block.</li>
-          <li><strong>Ingredients:</strong> Each ingredient should include <code>amount</code>, <code>unit</code>, <code>item</code>, and optional <code>preparation</code>, <code>substitution</code>, <code>allergen</code>, <code>origin</code>.</li>
-          <li><strong>Steps:</strong> Use ordered <code>&lt;step number="..."/&gt;</code> nodes with <code>instruction</code>, <code>time</code>, <code>temperature</code>, and <code>sensory-cues</code>.</li>
+          <li><strong>Ingredients:</strong> Each ingredient should include <code>amount</code>, <code>unit</code>, <code>item</code>, and optional <code>preparation</code>, <code>substitution</code>, [...]
+          <li><strong>Steps:</strong> Use ordered <code>&lt;step number="..."/&gt;</code> nodes with <code>instruction</code>, <code>time</code>, <code>temperature</code>, and <code>sensory-cues</code[...]
           <li><strong>Serving facts:</strong> Include <code>servings</code>, <code>serving-size</code>, <code>presentation</code>, <code>pairings</code>.</li>
           <li><strong>Nutrition:</strong> Provide macros, key micros (vitamins/minerals), and flags (e.g., gluten-free).</li>
           <li><strong>Timing & storage:</strong> Capture prep/cook/rest/total and reheating/storage guidance.</li>
@@ -494,6 +521,7 @@
     // File import for cardify
     let importedXMLText = '';
     let parsedRecipe = null;
+    let lastPdfBlobUrl = null;
 
     document.getElementById('fileInput').addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
@@ -508,6 +536,9 @@
       document.getElementById('preview').textContent = importedXMLText.slice(0, 4000);
       parsedRecipe = null;
       document.getElementById('btnDownloadPDF').disabled = true;
+      document.getElementById('showPreviewBtn').disabled = true;
+      document.getElementById('pdfPreviewWrapper').classList.add('hidden');
+      if (lastPdfBlobUrl) { URL.revokeObjectURL(lastPdfBlobUrl); lastPdfBlobUrl = null; }
     });
 
     // Parse CRD XML into a JS object
@@ -624,7 +655,177 @@
     }
 
     // Cardify: parse and build PDF
-    document.getElementById('btnCardify').addEventListener('click', () => {
+    let pdfBlobPromise = null;
+    function buildPDFAndGetBlob(parsedRecipe, filename) {
+      return new Promise(resolve => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+        const margin = 48;
+        let y = margin;
+
+        function addHeader(title) {
+          checkPage(32);
+          doc.setFont('Helvetica', 'bold');
+          doc.setFontSize(16);
+          doc.text(title, margin, y, { maxWidth: doc.internal.pageSize.getWidth() - margin * 2 });
+          y += 20;
+          doc.setDrawColor(230);
+          doc.line(margin, y, doc.internal.pageSize.getWidth() - margin, y);
+          y += 12;
+        }
+        function addField(label, value) {
+          if (!value) return;
+          checkPage(20);
+          doc.setFont('Helvetica', 'bold'); doc.setFontSize(11);
+          const labelW = doc.getTextWidth(label + ':');
+          doc.text(label + ':', margin, y);
+          doc.setFont('Helvetica', 'normal');
+          const text = Array.isArray(value) ? value.join(', ') : String(value);
+          const valueX = margin + labelW + 10;
+          const valueW = doc.internal.pageSize.getWidth() - margin*2 - labelW - 10;
+          const lines = doc.splitTextToSize(text, valueW);
+          doc.text(lines, valueX, y);
+          y += lines.length*14;
+        }
+        function addBullet(list, label) {
+          if (!list || !list.length) return;
+          checkPage(20);
+          doc.setFont('Helvetica', 'bold'); doc.setFontSize(12);
+          doc.text(label, margin, y); y += 14;
+          doc.setFont('Helvetica', 'normal');
+          list.forEach((item) => {
+            let line;
+            if (typeof item === 'string') {
+              line = `• ${item}`;
+            } else {
+              line = `• ${item.amount} ${item.unit} ${item.item}${item.preparation ? ' (' + item.preparation + ')' : ''}`;
+            }
+            const lines = doc.splitTextToSize(line, doc.internal.pageSize.getWidth() - margin*2);
+            lines.forEach(l => {
+              checkPage(14);
+              doc.text(l, margin+6, y);
+              y += 14;
+            });
+          });
+          y += 6;
+        }
+        function addSteps(steps) {
+          if (!steps || !steps.length) return;
+          checkPage(20);
+          doc.setFont('Helvetica', 'bold'); doc.setFontSize(12);
+          doc.text('Steps', margin, y); y += 14;
+          doc.setFont('Helvetica', 'normal');
+          steps.forEach(s => {
+            const header = `Step ${s.number || '?'}: ${s.instruction || ''}`.trim();
+            const meta = [
+              s.time ? `Time: ${s.time}` : null,
+              s.temperature ? `Temp: ${s.temperature}` : null,
+              s.tips ? `Tip: ${s.tips}` : null,
+              s.safety ? `Safety: ${s.safety}` : null,
+              s.sensory?.smell ? `Smell: ${s.sensory.smell}` : null,
+              s.sensory?.sound ? `Sound: ${s.sensory.sound}` : null,
+              s.sensory?.visual ? `Visual: ${s.sensory.visual}` : null,
+            ].filter(Boolean).join(' • ');
+            let textBlock = `• ${header}`;
+            let metaBlock = meta ? `   ${meta}` : '';
+            const lines = doc.splitTextToSize(textBlock, doc.internal.pageSize.getWidth() - margin*2);
+            lines.forEach(l => {
+              checkPage(14);
+              doc.text(l, margin+6, y);
+              y += 14;
+            });
+            if (metaBlock) {
+              const metaLines = doc.splitTextToSize(metaBlock, doc.internal.pageSize.getWidth() - margin*2-8);
+              metaLines.forEach(m => {
+                checkPage(14);
+                doc.text(m, margin+16, y);
+                y += 14;
+              });
+            }
+          });
+          y += 6;
+        }
+        function checkPage(addHeight) {
+          if (y + addHeight > doc.internal.pageSize.getHeight() - margin) {
+            doc.addPage();
+            y = margin;
+          }
+        }
+
+        // Title
+        checkPage(32);
+        doc.setFont('Helvetica', 'bold'); doc.setFontSize(22);
+        doc.text(parsedRecipe.meta.name || 'CRD Recipe', margin, y, { maxWidth: doc.internal.pageSize.getWidth() - margin*2 });
+        doc.setFont('Helvetica', 'normal'); doc.setFontSize(12);
+        const subtitle = [
+          parsedRecipe.meta.author ? `by ${parsedRecipe.meta.author}` : null,
+          parsedRecipe.meta.cuisine || null,
+          parsedRecipe.meta.difficulty || null
+        ].filter(Boolean).join(' • ');
+        y += 20;
+        if (subtitle) {
+          doc.text(subtitle, margin, y, { maxWidth: doc.internal.pageSize.getWidth() - margin*2 });
+          y += 14;
+        }
+        y += 8;
+
+        // Sections
+        addHeader('Metadata');
+        addField('ID', parsedRecipe.meta.id);
+        addField('Updated', parsedRecipe.meta.updated);
+        addField('License', parsedRecipe.meta.license);
+        addField('Culture', parsedRecipe.meta.culture);
+
+        addHeader('Serving facts');
+        addField('Servings', parsedRecipe.servings.count);
+        addField('Serving size', parsedRecipe.servings.size);
+        addField('Presentation', parsedRecipe.servings.presentation);
+        addField('Occasion', parsedRecipe.servings.occasion);
+        addField('Seasonality', parsedRecipe.servings.seasonality);
+        addField('Drink pairings', parsedRecipe.servings.drinkPairings);
+        addField('Side pairings', parsedRecipe.servings.sidePairings);
+
+        addHeader('Timing');
+        addField('Prep', parsedRecipe.timing.prep);
+        addField('Cook', parsedRecipe.timing.cook);
+        addField('Rest', parsedRecipe.timing.rest);
+        addField('Total', parsedRecipe.timing.total);
+        addField('Active', parsedRecipe.timing.active);
+        addField('Passive', parsedRecipe.timing.passive);
+
+        addHeader('Nutrition');
+        addField('Calories/serving', parsedRecipe.nutrition.calories);
+        addField('Protein', parsedRecipe.nutrition.macros.protein);
+        addField('Carbs', parsedRecipe.nutrition.macros.carbs);
+        addField('Fat', parsedRecipe.nutrition.macros.fat);
+        addField('Fiber', parsedRecipe.nutrition.macros.fiber);
+        addField('Sodium', parsedRecipe.nutrition.sodium);
+        addField('Cholesterol', parsedRecipe.nutrition.cholesterol);
+        addField('Healthiness', parsedRecipe.nutrition.healthiness);
+        addField('Glycemic index', parsedRecipe.nutrition.glycemicIndex);
+        addField('Dietary flags', parsedRecipe.nutrition.flags);
+
+        addHeader('Ingredients');
+        addBullet(parsedRecipe.ingredients, 'Ingredients');
+
+        addHeader('Steps');
+        addSteps(parsedRecipe.steps);
+
+        addHeader('History');
+        addField('Origin story', parsedRecipe.history.originStory);
+        addField('Regional variation', parsedRecipe.history.regionalVariation);
+        addField('Influences', parsedRecipe.history.influences);
+
+        addHeader('Notes');
+        addBullet(parsedRecipe.notes, 'Author notes');
+
+        doc.output('blob').then(blob => {
+          resolve(blob);
+        });
+      });
+    }
+
+    document.getElementById('btnCardify').addEventListener('click', async () => {
       if (!importedXMLText) {
         document.getElementById('fileStatus').textContent = 'No file imported yet.';
         return;
@@ -635,151 +836,66 @@
         // Preview JSON
         const previewEl = document.getElementById('preview');
         previewEl.textContent = JSON.stringify(parsedRecipe, null, 2);
-        document.getElementById('btnDownloadPDF').disabled = false;
-        document.getElementById('fileStatus').textContent = 'CRD parsed successfully. Ready to download PDF.';
+
+        // Generate and cache the PDF blob for Download & Preview
+        const base = (document.getElementById('cardTitle').value || parsedRecipe.meta.name || 'recipe').replace(/\s+/g, '-').toLowerCase();
+
+        pdfBlobPromise = buildPDFAndGetBlob(parsedRecipe, base);
+        pdfBlobPromise.then(blob => {
+          if (lastPdfBlobUrl) { URL.revokeObjectURL(lastPdfBlobUrl); }
+          lastPdfBlobUrl = URL.createObjectURL(blob);
+          document.getElementById('btnDownloadPDF').disabled = false;
+          document.getElementById('showPreviewBtn').disabled = false;
+          document.getElementById('fileStatus').textContent = 'CRD parsed and PDF ready. Download or preview.';
+        });
       } catch (e) {
         document.getElementById('fileStatus').textContent = 'Failed to parse XML. Ensure it is valid CRD.';
         document.getElementById('btnDownloadPDF').disabled = true;
+        document.getElementById('showPreviewBtn').disabled = true;
+        document.getElementById('pdfPreviewWrapper').classList.add('hidden');
+        if (lastPdfBlobUrl) { URL.revokeObjectURL(lastPdfBlobUrl); lastPdfBlobUrl = null; }
       }
     });
 
-    // Build PDF using jsPDF
-    document.getElementById('btnDownloadPDF').addEventListener('click', () => {
-      if (!parsedRecipe) return;
-      const { jsPDF } = window.jspdf;
-
-      const doc = new jsPDF({ unit: 'pt', format: 'letter' });
-      const margin = 48;
-      let y = margin;
-
-      function addHeader(title) {
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(16);
-        doc.text(title, margin, y);
-        y += 20;
-        doc.setDrawColor(230);
-        doc.line(margin, y, doc.internal.pageSize.getWidth() - margin, y);
-        y += 12;
-      }
-      function addField(label, value) {
-        if (!value) return;
-        doc.setFont('Helvetica', 'bold'); doc.setFontSize(11);
-        doc.text(label + ':', margin, y);
-        doc.setFont('Helvetica', 'normal');
-        const text = Array.isArray(value) ? value.join(', ') : String(value);
-        doc.text(text, margin + 80, y);
-        y += 16;
-      }
-      function addBullet(list, label) {
-        if (!list || !list.length) return;
-        doc.setFont('Helvetica', 'bold'); doc.setFontSize(12);
-        doc.text(label, margin, y); y += 14;
-        doc.setFont('Helvetica', 'normal');
-        list.forEach((item, i) => {
-          const line = (typeof item === 'string')
-            ? `• ${item}`
-            : `• ${item.amount} ${item.unit} ${item.item}${item.preparation ? ' (' + item.preparation + ')' : ''}`;
-          const lines = doc.splitTextToSize(line, doc.internal.pageSize.getWidth() - margin * 2);
-          doc.text(lines, margin, y);
-          y += 14 + (lines.length - 1) * 14;
-          if (y > doc.internal.pageSize.getHeight() - margin) { doc.addPage(); y = margin; }
-        });
-        y += 6;
-      }
-      function addSteps(steps) {
-        if (!steps || !steps.length) return;
-        doc.setFont('Helvetica', 'bold'); doc.setFontSize(12);
-        doc.text('Steps', margin, y); y += 14;
-        doc.setFont('Helvetica', 'normal');
-        steps.forEach(s => {
-          const header = `Step ${s.number || '?'}: ${s.instruction || ''}`.trim();
-          const meta = [
-            s.time ? `Time: ${s.time}` : null,
-            s.temperature ? `Temp: ${s.temperature}` : null,
-            s.tips ? `Tip: ${s.tips}` : null,
-            s.safety ? `Safety: ${s.safety}` : null,
-            s.sensory?.smell ? `Smell: ${s.sensory.smell}` : null,
-            s.sensory?.sound ? `Sound: ${s.sensory.sound}` : null,
-            s.sensory?.visual ? `Visual: ${s.sensory.visual}` : null,
-          ].filter(Boolean).join(' • ');
-          const lines = doc.splitTextToSize(`• ${header}`, doc.internal.pageSize.getWidth() - margin * 2);
-          doc.text(lines, margin, y); y += 14 + (lines.length - 1) * 14;
-          if (meta) {
-            const metaLines = doc.splitTextToSize(`   ${meta}`, doc.internal.pageSize.getWidth() - margin * 2);
-            doc.text(metaLines, margin, y); y += 14 + (metaLines.length - 1) * 14;
-          }
-          if (y > doc.internal.pageSize.getHeight() - margin) { doc.addPage(); y = margin; }
-        });
-        y += 6;
-      }
-
-      // Title
-      doc.setFont('Helvetica', 'bold'); doc.setFontSize(22);
-      doc.text(parsedRecipe.meta.name || 'CRD Recipe', margin, y);
-      doc.setFont('Helvetica', 'normal'); doc.setFontSize(12);
-      const subtitle = [
-        parsedRecipe.meta.author ? `by ${parsedRecipe.meta.author}` : null,
-        parsedRecipe.meta.cuisine || null,
-        parsedRecipe.meta.difficulty || null
-      ].filter(Boolean).join(' • ');
-      y += 20;
-      if (subtitle) { doc.text(subtitle, margin, y); y += 14; }
-      y += 8;
-
-      // Sections
-      addHeader('Metadata');
-      addField('ID', parsedRecipe.meta.id);
-      addField('Updated', parsedRecipe.meta.updated);
-      addField('License', parsedRecipe.meta.license);
-      addField('Culture', parsedRecipe.meta.culture);
-
-      addHeader('Serving facts');
-      addField('Servings', parsedRecipe.servings.count);
-      addField('Serving size', parsedRecipe.servings.size);
-      addField('Presentation', parsedRecipe.servings.presentation);
-      addField('Occasion', parsedRecipe.servings.occasion);
-      addField('Seasonality', parsedRecipe.servings.seasonality);
-      addField('Drink pairings', parsedRecipe.servings.drinkPairings);
-      addField('Side pairings', parsedRecipe.servings.sidePairings);
-
-      addHeader('Timing');
-      addField('Prep', parsedRecipe.timing.prep);
-      addField('Cook', parsedRecipe.timing.cook);
-      addField('Rest', parsedRecipe.timing.rest);
-      addField('Total', parsedRecipe.timing.total);
-      addField('Active', parsedRecipe.timing.active);
-      addField('Passive', parsedRecipe.timing.passive);
-
-      addHeader('Nutrition');
-      addField('Calories/serving', parsedRecipe.nutrition.calories);
-      addField('Protein', parsedRecipe.nutrition.macros.protein);
-      addField('Carbs', parsedRecipe.nutrition.macros.carbs);
-      addField('Fat', parsedRecipe.nutrition.macros.fat);
-      addField('Fiber', parsedRecipe.nutrition.macros.fiber);
-      addField('Sodium', parsedRecipe.nutrition.sodium);
-      addField('Cholesterol', parsedRecipe.nutrition.cholesterol);
-      addField('Healthiness', parsedRecipe.nutrition.healthiness);
-      addField('Glycemic index', parsedRecipe.nutrition.glycemicIndex);
-      addField('Dietary flags', parsedRecipe.nutrition.flags);
-
-      addHeader('Ingredients');
-      addBullet(parsedRecipe.ingredients, 'Ingredients');
-
-      addHeader('Steps');
-      addSteps(parsedRecipe.steps);
-
-      addHeader('History');
-      addField('Origin story', parsedRecipe.history.originStory);
-      addField('Regional variation', parsedRecipe.history.regionalVariation);
-      addField('Influences', parsedRecipe.history.influences);
-
-      addHeader('Notes');
-      addBullet(parsedRecipe.notes, 'Author notes');
-
-      // File name
+    // Download PDF
+    document.getElementById('btnDownloadPDF').addEventListener('click', async () => {
+      if (!parsedRecipe || !pdfBlobPromise) return;
       const base = (document.getElementById('cardTitle').value || parsedRecipe.meta.name || 'recipe').replace(/\s+/g, '-').toLowerCase();
-      doc.save(`${base}.crd.pdf`);
+
+      const blob = await pdfBlobPromise;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${base}.crd.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 500);
     });
+
+    // PDF Preview Feature
+    document.getElementById('showPreviewBtn').addEventListener('click', async () => {
+      if (!pdfBlobPromise) return;
+      const blob = await pdfBlobPromise;
+      if (lastPdfBlobUrl) { URL.revokeObjectURL(lastPdfBlobUrl); }
+      lastPdfBlobUrl = URL.createObjectURL(blob);
+      const wrapper = document.getElementById('pdfPreviewWrapper');
+      const frame = document.getElementById('pdfPreviewFrame');
+      frame.src = lastPdfBlobUrl;
+      wrapper.classList.remove('hidden');
+      // Scroll to preview
+      setTimeout(() => {
+        wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    });
+
+    // On leaving Card tab, revoke PDF preview blob to avoid stale memory
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.tab !== 'card') {
+          document.getElementById('pdfPreviewWrapper').classList.add('hidden');
+          if (lastPdfBlobUrl) { URL.revokeObjectURL(lastPdfBlobUrl); lastPdfBlobUrl = null; }
+        }
+      });
+    });
+
   </script>
 </body>
 </html>
