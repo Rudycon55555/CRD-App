@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- Main app -->
+  <url>
+    <loc>https://rudycon55555.github.io/CRD-App/index.html</loc>
+    <lastmod>2025-11-23</lastmod>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Tabs as anchors -->
+  <url>
+    <loc>https://rudycon55555.github.io/CRD-App/index.html#editor</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://rudycon55555.github.io/CRD-App/index.html#card</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://rudycon55555.github.io/CRD-App/index.html#docs</loc>
+    <priority>0.8</priority>
+  </url>
+
+</urlset>
