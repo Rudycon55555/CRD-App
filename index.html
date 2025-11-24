@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CRD App — Editor, Cardify, Docs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Minimal reset and app styles -->
+  <style>
+    :root {
+      --bg: #0f1220;
+      --panel: #151932;
+      --accent: #6ee7ff;
+      --accent2: #ffd166;
+      --text: #e6e9f5;
+      --muted: #aab1d9;
+      --danger: #ff6b6b;
+      --success: #5ad47a;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #0b0e1a, var(--bg) 45%, #0b0e1a);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid #222846;
+      background: rgba(15,18,32,0.8);
+      backdrop-filter: blur(6px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0.4px;
+    }
+    .tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid #2a3058;
+      background: #141935;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 14px;
+    }
+    .tab-btn.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px inset var(--accent);
+      color: var(--accent);
+      background: #10142b;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 18px auto;
+      padding: 0 16px 40px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid #2a3058;
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    .panel h2 {
+      margin-top: 0;
+      font-size: 18px;
+      letter-spacing: 0.3px;
+      color: var(--accent);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .row-3 {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr;
+      gap: 16px;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    button, .btn {
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid #2a3058;
+      background: #121633;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 14px;
+    }
+    button:hover, .btn:hover { filter: brightness(1.15); }
+    .btn-primary {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px inset var(--accent);
+      color: var(--bg);
+      background: var(--accent);
+    }
+    .btn-warn {
+      border-color: var(--danger);
+      color: var(--danger);
+      background: #1b1020;
+    }
+    .btn-success {
+      border-color: var(--success);
+      color: var(--bg);
+      background: var(--success);
+    }
+    input[type="file"], input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #2a3058;
+      background: #0f1432;
+      color: var(--text);
+      font-size: 14px;
+    }
+    label { color: var(--muted); font-size: 13px; }
+    .code {
+      font-family: var(--mono);
+      font-size: 13px;
+      background: #0c1026;
+      border: 1px solid #283059;
+      border-radius: 8px;
+      padding: 12px;
+      overflow: auto;
+      max-height: 380px;
+      white-space: pre;
+    }
+    .status {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 16px;
+      border-top: 1px solid #222846;
+    }
+    .hidden { display: none; }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border: 1px solid #2a3058;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-left: 8px;
+    }
+  </style>
+
+  <!-- CodeMirror for rich XML editing -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/material-darker.css">
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/xml/xml.js"></script>
+
+  <!-- jsPDF for PDF generation -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>CRD App <span class="pill">Cooking Recipe Data</span></h1>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="editor">CRD Text Editor</button>
+      <button class="tab-btn" data-tab="card">Create Card</button>
+      <button class="tab-btn" data-tab="docs">Docs</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- Editor Tab -->
+    <section id="tab-editor" class="panel">
+      <h2>CRD Text Editor</h2>
+      <p class="status">Rich XML editing with syntax highlighting. Save as .crd.xml.</p>
+
+      <div class="row">
+        <div>
+          <label for="recipeNameInput">File name (no extension)</label>
+          <input id="recipeNameInput" type="text" placeholder="e.g., grandma-apple-pie" />
+        </div>
+        <div class="actions" style="align-items: end;">
+          <button id="btnLoadSkeleton" class="btn">Load CRD skeleton</button>
+          <button id="btnDownloadCRD" class="btn btn-primary">Download .crd.xml</button>
+        </div>
+      </div>
+
+      <div id="editor" style="margin-top: 12px; height: 500px;"></div>
+      <p id="editorStatus" class="status"></p>
+    </section>
+
+    <!-- Cardify Tab -->
+    <section id="tab-card" class="panel hidden">
+      <h2>Create Card</h2>
+      <p class="status">Import .crd.xml, .xml (CRD), or .crd and generate a printable PDF card.</p>
+
+      <div class="row-3">
+        <div>
+          <label for="fileInput">Import CRD file</label>
+          <input id="fileInput" type="file" accept=".crd.xml,.xml,.crd" />
+          <p id="fileStatus" class="status"></p>
+        </div>
+        <div class="actions" style="align-items: end;">
+          <button id="btnCardify" class="btn btn-success">Cardify</button>
+          <button id="btnDownloadPDF" class="btn btn-primary" disabled>Download .crd.pdf</button>
+        </div>
+        <div>
+          <label for="cardTitle">PDF file name (no extension)</label>
+          <input id="cardTitle" type="text" placeholder="defaults to recipe name if present" />
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top: 16px;">
+        <h2>Preview (parsed CRD)</h2>
+        <div id="preview" class="code"></div>
+      </div>
+    </section>
+
+    <!-- Docs Tab -->
+    <section id="tab-docs" class="panel hidden">
+      <h2>Docs</h2>
+      <div class="panel">
+        <h2>What is CRD?</h2>
+        <p>
+          CRD (Cooking Recipe Data) is a structured XML format for recipes that captures metadata,
+          ingredients, steps with sensory cues, serving guidance, nutrition, timing, storage, history,
+          and more. It aims to be developer-friendly and human-readable.
+        </p>
+      </div>
+
+      <div class="panel">
+        <h2>Authoring guidelines</h2>
+        <ul>
+          <li><strong>Metadata:</strong> Provide a stable <code>&lt;id&gt;</code>, descriptive <code>&lt;name&gt;</code>, and an <code>&lt;author&gt;</code> block.</li>
+          <li><strong>Ingredients:</strong> Each ingredient should include <code>amount</code>, <code>unit</code>, <code>item</code>, and optional <code>preparation</code>, <code>substitution</code>, <code>allergen</code>, <code>origin</code>.</li>
+          <li><strong>Steps:</strong> Use ordered <code>&lt;step number="..."/&gt;</code> nodes with <code>instruction</code>, <code>time</code>, <code>temperature</code>, and <code>sensory-cues</code>.</li>
+          <li><strong>Serving facts:</strong> Include <code>servings</code>, <code>serving-size</code>, <code>presentation</code>, <code>pairings</code>.</li>
+          <li><strong>Nutrition:</strong> Provide macros, key micros (vitamins/minerals), and flags (e.g., gluten-free).</li>
+          <li><strong>Timing & storage:</strong> Capture prep/cook/rest/total and reheating/storage guidance.</li>
+          <li><strong>History & notes:</strong> Share origin stories, symbolism, and variations.</li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <h2>CRD XML skeleton</h2>
+        <pre id="docsSkeleton" class="code"></pre>
+      </div>
+
+      <div class="panel">
+        <h2>Minimal example</h2>
+<pre class="code">&lt;recipe&gt;
+  &lt;metadata&gt;
+    &lt;id&gt;apple-pie-001&lt;/id&gt;
+    &lt;name&gt;Grandma's Apple Pie&lt;/name&gt;
+    &lt;author&gt;
+      &lt;name&gt;Jane Doe&lt;/name&gt;
+    &lt;/author&gt;
+    &lt;difficulty&gt;medium&lt;/difficulty&gt;
+    &lt;cuisine-type&gt;American&lt;/cuisine-type&gt;
+  &lt;/metadata&gt;
+  &lt;ingredients&gt;
+    &lt;ingredient&gt;
+      &lt;amount&gt;2&lt;/amount&gt;&lt;unit&gt;lbs&lt;/unit&gt;&lt;item&gt;apples&lt;/item&gt;
+    &lt;/ingredient&gt;
+  &lt;/ingredients&gt;
+  &lt;steps&gt;
+    &lt;step number="1"&gt;&lt;instruction&gt;Slice apples&lt;/instruction&gt;&lt;/step&gt;
+  &lt;/steps&gt;
+&lt;/recipe&gt;</pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Built for CRD: Editor, Cardify, and Docs — All-in-One HTML. No backend required.
+  </footer>
+
+  <script>
+    // Tabs
+    const tabs = document.querySelectorAll('.tab-btn');
+    const sections = {
+      editor: document.getElementById('tab-editor'),
+      card: document.getElementById('tab-card'),
+      docs: document.getElementById('tab-docs')
+    };
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        Object.values(sections).forEach(s => s.classList.add('hidden'));
+        sections[btn.dataset.tab].classList.remove('hidden');
+      });
+    });
+
+    // CodeMirror setup
+    const cm = CodeMirror(document.getElementById('editor'), {
+      value: '',
+      mode: 'application/xml',
+      theme: 'material-darker',
+      lineNumbers: true,
+      lineWrapping: true,
+      tabSize: 2,
+      indentUnit: 2,
+      autoCloseTags: true,
+      matchTags: { bothTags: true }
+    });
+
+    const defaultSkeleton = `
+<recipe>
+  <metadata>
+    <id>[unique recipe identifier]</id>
+    <name>[recipe name]</name>
+    <author>
+      <name>[author name]</name>
+      <profile-url>[author profile link]</profile-url>
+      <contributor-role>[chef/home cook/blogger]</contributor-role>
+      <location>[author location]</location>
+    </author>
+    <difficulty>[easy/medium/hard]</difficulty>
+    <culture>[origin or inspiration]</culture>
+    <cuisine-type>[Italian/Fusion/Vegan/etc]</cuisine-type>
+    <tags>
+      <tag>[keyword]</tag>
+    </tags>
+    <version>[recipe version number]</version>
+    <last-updated>[ISO date]</last-updated>
+    <license>[CC-BY/All Rights Reserved/etc]</license>
+    <provenance>[blockchain hash or source reference]</provenance>
+  </metadata>
+
+  <ingredients>
+    <ingredient>
+      <amount>[quantity]</amount>
+      <unit>[unit of measure]</unit>
+      <item>[ingredient name]</item>
+      <preparation>[chopped/diced/etc]</preparation>
+      <substitution>[possible alternative]</substitution>
+      <allergen>[nut/gluten/dairy/etc]</allergen>
+      <origin>
+        <farm>[farm name]</farm>
+        <region>[geographic origin]</region>
+        <certification>[organic/fair trade/etc]</certification>
+      </origin>
+      <sustainability-score>[rating]</sustainability-score>
+      <cost>[estimated cost]</cost>
+    </ingredient>
+  </ingredients>
+
+  <equipment>
+    <tool>[pan/pot/knife/etc]</tool>
+    <appliance>[oven/stove/blender/etc]</appliance>
+    <special-equipment>[rare tool like tagine]</special-equipment>
+  </equipment>
+
+  <steps>
+    <step number="[step order]">
+      <instruction>[what to do]</instruction>
+      <time>[minutes]</time>
+      <temperature>[°C/°F]</temperature>
+      <media>
+        <image>[image URL]</image>
+        <video>[video URL]</video>
+        <audio>[audio narration]</audio>
+      </media>
+      <tips>[extra advice]</tips>
+      <safety-warning>[caution about knives/heat/etc]</safety-warning>
+      <sensory-cues>
+        <smell>[aroma description]</smell>
+        <sound>[sizzle/pop/etc]</sound>
+        <visual>[color/texture change]</visual>
+      </sensory-cues>
+    </step>
+  </steps>
+
+  <serving-facts>
+    <servings>[number]</servings>
+    <serving-size>[portion size]</serving-size>
+    <presentation>[plating suggestion]</presentation>
+    <pairings>
+      <drink>[wine/tea/etc]</drink>
+      <side>[bread/salad/etc]</side>
+    </pairings>
+    <occasion>[holiday/birthday/etc]</occasion>
+    <seasonality>[best season to serve]</seasonality>
+  </serving-facts>
+
+  <nutrition>
+    <calories-per-serving>[calories]</calories-per-serving>
+    <macros>
+      <protein>[grams]</protein>
+      <carbs>[grams]</carbs>
+      <fat>[grams]</fat>
+      <fiber>[grams]</fiber>
+    </macros>
+    <micros>
+      <vitamin>[vitamin name + amount]</vitamin>
+      <mineral>[mineral name + amount]</mineral>
+    </micros>
+    <dietary-flags>
+      <flag>[vegan/keto/gluten-free/etc]</flag>
+    </dietary-flags>
+    <glycemic-index>[value]</glycemic-index>
+    <sodium>[mg]</sodium>
+    <cholesterol>[mg]</cholesterol>
+    <healthiness>[rating]</healthiness>
+  </nutrition>
+
+  <timing>
+    <prep-time>[minutes]</prep-time>
+    <cook-time>[minutes]</cook-time>
+    <rest-time>[minutes]</rest-time>
+    <total-time>[minutes]</total-time>
+    <active-time>[minutes actively working]</active-time>
+    <passive-time>[waiting/baking/etc]</passive-time>
+  </timing>
+
+  <storage>
+    <shelf-life>[days/hours]</shelf-life>
+    <storage-method>[fridge/freezer/pantry]</storage-method>
+    <reheating-instructions>[how to reheat]</reheating-instructions>
+    <freezer-friendly>[yes/no]</freezer-friendly>
+  </storage>
+
+  <ratings>
+    <user-rating>[average stars]</user-rating>
+    <expert-rating>[critic score]</expert-rating>
+    <popularity>[views/downloads]</popularity>
+  </ratings>
+
+  <history>
+    <origin-story>[how recipe came to be]</origin-story>
+    <regional-variation>[adaptations in different regions]</regional-variation>
+    <influences>[other cuisines or chefs]</influences>
+  </history>
+
+  <author-notes>
+    <note>[personal story or context]</note>
+    <humor>[funny anecdote]</humor>
+    <memory>[nostalgic detail]</memory>
+  </author-notes>
+
+  <etc>
+    <fact>[extra factual detail]</fact>
+    <variation>[alternate recipe version]</variation>
+    <regional-adaptation>[how it differs elsewhere]</regional-adaptation>
+    <dietary-adaptation>[low-carb/vegan version]</dietary-adaptation>
+    <cultural-symbolism>[ritual/holiday meaning]</cultural-symbolism>
+  </etc>
+</recipe>`.trim();
+
+    // Load skeleton into editor and docs
+    document.getElementById('btnLoadSkeleton').addEventListener('click', () => {
+      cm.setValue(defaultSkeleton);
+      document.getElementById('editorStatus').textContent = 'Skeleton loaded. Customize and download as .crd.xml.';
+      // Also load into docs view
+      document.getElementById('docsSkeleton').textContent = defaultSkeleton;
+    });
+    // Initialize docs skeleton on first load
+    document.getElementById('docsSkeleton').textContent = defaultSkeleton;
+
+    // Download .crd.xml
+    document.getElementById('btnDownloadCRD').addEventListener('click', () => {
+      const name = (document.getElementById('recipeNameInput').value || 'recipe').replace(/\s+/g, '-').toLowerCase();
+      const blob = new Blob([cm.getValue()], { type: 'application/xml;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${name}.crd.xml`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 500);
+      document.getElementById('editorStatus').textContent = `Downloaded ${name}.crd.xml`;
+    });
+
+    // File import for cardify
+    let importedXMLText = '';
+    let parsedRecipe = null;
+
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const name = file.name.toLowerCase();
+      if (!name.endsWith('.crd.xml') && !name.endsWith('.xml') && !name.endsWith('.crd')) {
+        document.getElementById('fileStatus').textContent = 'Unsupported file type. Please select .crd.xml, .xml, or .crd.';
+        return;
+      }
+      importedXMLText = await file.text();
+      document.getElementById('fileStatus').textContent = `Loaded ${file.name} (${file.size} bytes). Ready to Cardify.`;
+      document.getElementById('preview').textContent = importedXMLText.slice(0, 4000);
+      parsedRecipe = null;
+      document.getElementById('btnDownloadPDF').disabled = true;
+    });
+
+    // Parse CRD XML into a JS object
+    function parseCRD(xmlText) {
+      const dom = new DOMParser().parseFromString(xmlText, 'application/xml');
+      const err = dom.querySelector('parsererror');
+      if (err) throw new Error('XML parsing error');
+
+      function text(q) {
+        const el = dom.querySelector(q);
+        return el ? (el.textContent || '').trim() : '';
+      }
+      function texts(q, child) {
+        const list = Array.from(dom.querySelectorAll(q));
+        return list.map(el => child ? (el.querySelector(child)?.textContent || '').trim() : (el.textContent || '').trim()).filter(Boolean);
+      }
+      function listIngredients() {
+        return Array.from(dom.querySelectorAll('ingredients > ingredient')).map(ing => ({
+          amount: ing.querySelector('amount')?.textContent?.trim() || '',
+          unit: ing.querySelector('unit')?.textContent?.trim() || '',
+          item: ing.querySelector('item')?.textContent?.trim() || '',
+          preparation: ing.querySelector('preparation')?.textContent?.trim() || '',
+          substitution: ing.querySelector('substitution')?.textContent?.trim() || '',
+          allergen: ing.querySelector('allergen')?.textContent?.trim() || '',
+          origin: {
+            farm: ing.querySelector('origin > farm')?.textContent?.trim() || '',
+            region: ing.querySelector('origin > region')?.textContent?.trim() || '',
+            certification: ing.querySelector('origin > certification')?.textContent?.trim() || ''
+          },
+          sustainabilityScore: ing.querySelector('sustainability-score')?.textContent?.trim() || '',
+          cost: ing.querySelector('cost')?.textContent?.trim() || ''
+        }));
+      }
+      function listSteps() {
+        return Array.from(dom.querySelectorAll('steps > step')).map(step => ({
+          number: step.getAttribute('number') || '',
+          instruction: step.querySelector('instruction')?.textContent?.trim() || '',
+          time: step.querySelector('time')?.textContent?.trim() || '',
+          temperature: step.querySelector('temperature')?.textContent?.trim() || '',
+          tips: step.querySelector('tips')?.textContent?.trim() || '',
+          safety: step.querySelector('safety-warning')?.textContent?.trim() || '',
+          sensory: {
+            smell: step.querySelector('sensory-cues > smell')?.textContent?.trim() || '',
+            sound: step.querySelector('sensory-cues > sound')?.textContent?.trim() || '',
+            visual: step.querySelector('sensory-cues > visual')?.textContent?.trim() || ''
+          }
+        }));
+      }
+
+      const recipe = {
+        meta: {
+          id: text('metadata > id'),
+          name: text('metadata > name'),
+          author: text('metadata > author > name'),
+          difficulty: text('metadata > difficulty'),
+          cuisine: text('metadata > cuisine-type'),
+          culture: text('metadata > culture'),
+          updated: text('metadata > last-updated'),
+          license: text('metadata > license')
+        },
+        servings: {
+          count: text('serving-facts > servings'),
+          size: text('serving-facts > serving-size'),
+          presentation: text('serving-facts > presentation'),
+          drinkPairings: texts('serving-facts > pairings > drink'),
+          sidePairings: texts('serving-facts > pairings > side'),
+          occasion: text('serving-facts > occasion'),
+          seasonality: text('serving-facts > seasonality')
+        },
+        nutrition: {
+          calories: text('nutrition > calories-per-serving'),
+          macros: {
+            protein: text('nutrition > macros > protein'),
+            carbs: text('nutrition > macros > carbs'),
+            fat: text('nutrition > macros > fat'),
+            fiber: text('nutrition > macros > fiber')
+          },
+          flags: texts('nutrition > dietary-flags > flag'),
+          sodium: text('nutrition > sodium'),
+          cholesterol: text('nutrition > cholesterol'),
+          healthiness: text('nutrition > healthiness'),
+          glycemicIndex: text('nutrition > glycemic-index')
+        },
+        timing: {
+          prep: text('timing > prep-time'),
+          cook: text('timing > cook-time'),
+          rest: text('timing > rest-time'),
+          total: text('timing > total-time'),
+          active: text('timing > active-time'),
+          passive: text('timing > passive-time')
+        },
+        storage: {
+          shelfLife: text('storage > shelf-life'),
+          method: text('storage > storage-method'),
+          reheat: text('storage > reheating-instructions'),
+          freezerFriendly: text('storage > freezer-friendly')
+        },
+        ingredients: listIngredients(),
+        steps: listSteps(),
+        ratings: {
+          user: text('ratings > user-rating'),
+          expert: text('ratings > expert-rating'),
+          popularity: text('ratings > popularity')
+        },
+        history: {
+          originStory: text('history > origin-story'),
+          regionalVariation: text('history > regional-variation'),
+          influences: text('history > influences')
+        },
+        notes: texts('author-notes > note')
+      };
+
+      return recipe;
+    }
+
+    // Cardify: parse and build PDF
+    document.getElementById('btnCardify').addEventListener('click', () => {
+      if (!importedXMLText) {
+        document.getElementById('fileStatus').textContent = 'No file imported yet.';
+        return;
+      }
+      try {
+        parsedRecipe = parseCRD(importedXMLText);
+
+        // Preview JSON
+        const previewEl = document.getElementById('preview');
+        previewEl.textContent = JSON.stringify(parsedRecipe, null, 2);
+        document.getElementById('btnDownloadPDF').disabled = false;
+        document.getElementById('fileStatus').textContent = 'CRD parsed successfully. Ready to download PDF.';
+      } catch (e) {
+        document.getElementById('fileStatus').textContent = 'Failed to parse XML. Ensure it is valid CRD.';
+        document.getElementById('btnDownloadPDF').disabled = true;
+      }
+    });
+
+    // Build PDF using jsPDF
+    document.getElementById('btnDownloadPDF').addEventListener('click', () => {
+      if (!parsedRecipe) return;
+      const { jsPDF } = window.jspdf;
+
+      const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+      const margin = 48;
+      let y = margin;
+
+      function addHeader(title) {
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text(title, margin, y);
+        y += 20;
+        doc.setDrawColor(230);
+        doc.line(margin, y, doc.internal.pageSize.getWidth() - margin, y);
+        y += 12;
+      }
+      function addField(label, value) {
+        if (!value) return;
+        doc.setFont('Helvetica', 'bold'); doc.setFontSize(11);
+        doc.text(label + ':', margin, y);
+        doc.setFont('Helvetica', 'normal');
+        const text = Array.isArray(value) ? value.join(', ') : String(value);
+        doc.text(text, margin + 80, y);
+        y += 16;
+      }
+      function addBullet(list, label) {
+        if (!list || !list.length) return;
+        doc.setFont('Helvetica', 'bold'); doc.setFontSize(12);
+        doc.text(label, margin, y); y += 14;
+        doc.setFont('Helvetica', 'normal');
+        list.forEach((item, i) => {
+          const line = (typeof item === 'string')
+            ? `• ${item}`
+            : `• ${item.amount} ${item.unit} ${item.item}${item.preparation ? ' (' + item.preparation + ')' : ''}`;
+          const lines = doc.splitTextToSize(line, doc.internal.pageSize.getWidth() - margin * 2);
+          doc.text(lines, margin, y);
+          y += 14 + (lines.length - 1) * 14;
+          if (y > doc.internal.pageSize.getHeight() - margin) { doc.addPage(); y = margin; }
+        });
+        y += 6;
+      }
+      function addSteps(steps) {
+        if (!steps || !steps.length) return;
+        doc.setFont('Helvetica', 'bold'); doc.setFontSize(12);
+        doc.text('Steps', margin, y); y += 14;
+        doc.setFont('Helvetica', 'normal');
+        steps.forEach(s => {
+          const header = `Step ${s.number || '?'}: ${s.instruction || ''}`.trim();
+          const meta = [
+            s.time ? `Time: ${s.time}` : null,
+            s.temperature ? `Temp: ${s.temperature}` : null,
+            s.tips ? `Tip: ${s.tips}` : null,
+            s.safety ? `Safety: ${s.safety}` : null,
+            s.sensory?.smell ? `Smell: ${s.sensory.smell}` : null,
+            s.sensory?.sound ? `Sound: ${s.sensory.sound}` : null,
+            s.sensory?.visual ? `Visual: ${s.sensory.visual}` : null,
+          ].filter(Boolean).join(' • ');
+          const lines = doc.splitTextToSize(`• ${header}`, doc.internal.pageSize.getWidth() - margin * 2);
+          doc.text(lines, margin, y); y += 14 + (lines.length - 1) * 14;
+          if (meta) {
+            const metaLines = doc.splitTextToSize(`   ${meta}`, doc.internal.pageSize.getWidth() - margin * 2);
+            doc.text(metaLines, margin, y); y += 14 + (metaLines.length - 1) * 14;
+          }
+          if (y > doc.internal.pageSize.getHeight() - margin) { doc.addPage(); y = margin; }
+        });
+        y += 6;
+      }
+
+      // Title
+      doc.setFont('Helvetica', 'bold'); doc.setFontSize(22);
+      doc.text(parsedRecipe.meta.name || 'CRD Recipe', margin, y);
+      doc.setFont('Helvetica', 'normal'); doc.setFontSize(12);
+      const subtitle = [
+        parsedRecipe.meta.author ? `by ${parsedRecipe.meta.author}` : null,
+        parsedRecipe.meta.cuisine || null,
+        parsedRecipe.meta.difficulty || null
+      ].filter(Boolean).join(' • ');
+      y += 20;
+      if (subtitle) { doc.text(subtitle, margin, y); y += 14; }
+      y += 8;
+
+      // Sections
+      addHeader('Metadata');
+      addField('ID', parsedRecipe.meta.id);
+      addField('Updated', parsedRecipe.meta.updated);
+      addField('License', parsedRecipe.meta.license);
+      addField('Culture', parsedRecipe.meta.culture);
+
+      addHeader('Serving facts');
+      addField('Servings', parsedRecipe.servings.count);
+      addField('Serving size', parsedRecipe.servings.size);
+      addField('Presentation', parsedRecipe.servings.presentation);
+      addField('Occasion', parsedRecipe.servings.occasion);
+      addField('Seasonality', parsedRecipe.servings.seasonality);
+      addField('Drink pairings', parsedRecipe.servings.drinkPairings);
+      addField('Side pairings', parsedRecipe.servings.sidePairings);
+
+      addHeader('Timing');
+      addField('Prep', parsedRecipe.timing.prep);
+      addField('Cook', parsedRecipe.timing.cook);
+      addField('Rest', parsedRecipe.timing.rest);
+      addField('Total', parsedRecipe.timing.total);
+      addField('Active', parsedRecipe.timing.active);
+      addField('Passive', parsedRecipe.timing.passive);
+
+      addHeader('Nutrition');
+      addField('Calories/serving', parsedRecipe.nutrition.calories);
+      addField('Protein', parsedRecipe.nutrition.macros.protein);
+      addField('Carbs', parsedRecipe.nutrition.macros.carbs);
+      addField('Fat', parsedRecipe.nutrition.macros.fat);
+      addField('Fiber', parsedRecipe.nutrition.macros.fiber);
+      addField('Sodium', parsedRecipe.nutrition.sodium);
+      addField('Cholesterol', parsedRecipe.nutrition.cholesterol);
+      addField('Healthiness', parsedRecipe.nutrition.healthiness);
+      addField('Glycemic index', parsedRecipe.nutrition.glycemicIndex);
+      addField('Dietary flags', parsedRecipe.nutrition.flags);
+
+      addHeader('Ingredients');
+      addBullet(parsedRecipe.ingredients, 'Ingredients');
+
+      addHeader('Steps');
+      addSteps(parsedRecipe.steps);
+
+      addHeader('History');
+      addField('Origin story', parsedRecipe.history.originStory);
+      addField('Regional variation', parsedRecipe.history.regionalVariation);
+      addField('Influences', parsedRecipe.history.influences);
+
+      addHeader('Notes');
+      addBullet(parsedRecipe.notes, 'Author notes');
+
+      // File name
+      const base = (document.getElementById('cardTitle').value || parsedRecipe.meta.name || 'recipe').replace(/\s+/g, '-').toLowerCase();
+      doc.save(`${base}.crd.pdf`);
+    });
+  </script>
+</body>
+</html>
