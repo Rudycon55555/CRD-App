@@ -1,0 +1,6 @@
+# robots.txt for CRD App
+User-agent: *
+Allow: /
+
+# Point crawlers to the sitemap hosted on GitHub Pages
+Sitemap: https://rudycon55555.github.io/CRD-App/sitemap.xml
