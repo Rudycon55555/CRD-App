@@ -37,7 +37,7 @@ It is a **source-available licence** that allows both **commercial** and **non-c
    - Any redistributed or modified version must clearly state that it is based on the **CRD App** and licensed under **RCSAL**.
     
 7. **Anything Else**
-   - Anything not mentioned is reserved to ownder (in this case, Rudra, me)
+   - Anything not mentioned is reserved to owner (in this case, Rudra, me)
 
 ---
 
